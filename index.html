@@ -1142,7 +1142,7 @@
     </div>
 
     <script>
-        // CONFIGURATION - Replace with your actual values
+        // CONFIGURATION - Replace with your Master Key
         const JSONBIN_BIN_ID = '692abda043b1c97be9cc7ffb';
         const JSONBIN_API_KEY = '$2a$10$aMh1mO8btCVSqfcvlxvUJeJ6p.7kHJlSyKz7UjvTu2wqRAQlAcAXe';
 
@@ -1693,10 +1693,10 @@
             setTimeout(() => { document.title = originalTitle; }, 1000);
         }
 
-        // Save to JSONBin
+        // Save to JSONBin - FIXED: Now appends profiles instead of overwriting
         async function saveToJSONBin() {
-            if (JSONBIN_BIN_ID === 'YOUR_BIN_ID_HERE' || JSONBIN_API_KEY === 'YOUR_API_KEY_HERE') {
-                alert(currentLang === 'it' ? '⚠️ Configura JSONBIN_BIN_ID e JSONBIN_API_KEY nella sezione JavaScript!' : 'Please configure JSONBIN_BIN_ID and JSONBIN_API_KEY in the JavaScript section first!');
+            if (JSONBIN_API_KEY === 'YOUR_MASTER_KEY_HERE') {
+                alert(currentLang === 'it' ? '⚠️ Configura JSONBIN_API_KEY nella sezione JavaScript!' : '⚠️ Please configure JSONBIN_API_KEY in the JavaScript section first!');
                 return;
             }
 
@@ -1705,20 +1705,39 @@
             btn.textContent = currentLang === 'it' ? '⏳ Salvataggio...' : '⏳ Saving...';
 
             try {
-                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+                // STEP 1: Fetch existing data from JSONBin
+                const getResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Master-Key': JSONBIN_API_KEY
+                    }
+                });
+
+                let profiles = [];
+                if (getResponse.ok) {
+                    const getData = await getResponse.json();
+                    // Check if profiles array exists in the bin
+                    profiles = getData.record.profiles || [];
+                }
+
+                // STEP 2: Append new profile to existing array
+                profiles.push({
+                    profile: formData,
+                    timestamp: new Date().toISOString(),
+                    language: currentLang
+                });
+
+                // STEP 3: Save all profiles back to JSONBin
+                const putResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Master-Key': JSONBIN_API_KEY
                     },
-                    body: JSON.stringify({
-                        profile: formData,
-                        timestamp: new Date().toISOString(),
-                        language: currentLang
-                    })
+                    body: JSON.stringify({ profiles: profiles })
                 });
 
-                if (response.ok) {
+                if (putResponse.ok) {
                     alert(currentLang === 'it' ? '✅ Profilo salvato con successo su JSONBin!' : '✅ Profile saved successfully to JSONBin!');
                 } else {
                     throw new Error('Failed to save');
